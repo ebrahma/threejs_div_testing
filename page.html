@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+</head>
+<body>
+
+<script src="Three.js"></script>
+
+
+<div id="ThreeJS" style="position: absolute; left:0px; top:0px"></div>
+<script>
+// MAIN
+1
+// standard global variables
+var container, scene, camera, renderer, controls;
+//var keyboard = new KeyboardState();
+
+// custom global variables
+var targetList = [];
+var projector, mouse = { x: 0, y: 0 },INTERSECTED;
+var selectedFaces = [];
+var floorSide=1000;
+var baseColor=new THREE.Color( 0x44dd66 );
+var highlightedColor=new THREE.Color( 0xddaa00 );
+var selectedColor=new THREE.Color( 0x4466dd );
+var mouseSphereCoords = null;
+var mouseSphere=[];
+
+init();
+animate();
+
+// FUNCTIONS
+function init()
+{
+
+	scene = new THREE.Scene();
+
+	var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+	var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
+	camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR);
+	scene.add(camera);
+	camera.position.set(0,250,950);
+	camera.lookAt(scene.position);
+
+		renderer = new THREE.CanvasRenderer();
+	renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+	container = document.getElementById( 'ThreeJS' );
+	container.appendChild( renderer.domElement );
+
+	var light = new THREE.AmbientLight( 0x333333 ); // soft white light
+	scene.add( light );
+	var light = new THREE.PointLight(0xffffff,1,4500);
+	light.position.set(-300,1000,-300);
+	scene.add(light);
+
+	addOcta();
+
+
+	// initialize object to perform world/screen calculations
+	projector = new THREE.Projector();
+
+	// when the mouse moves, call the given function
+	document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+	//document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+}
+function addOcta()
+{
+	var cubeSide = 100;
+
+
+	var faceColorMaterial = new THREE.MeshLambertMaterial(
+	{ color: 0xffffff, vertexColors: THREE.FaceColors,polygonOffset: true,polygonOffsetUnits: 1,polygonOffsetFactor: 1} );
+
+	var octaGeom= new THREE.OctahedronGeometry(cubeSide,0);
+	for ( var i = 0; i < octaGeom.faces.length; i++ )
+	{
+		face = octaGeom.faces[ i ];
+		face.color= baseColor;
+	}
+	var octa= new THREE.Mesh( octaGeom, faceColorMaterial );
+	octa.position.set(0, 0, 0);
+	// creates a wireMesh object
+	wireOcta = new THREE.Mesh(octaGeom, new THREE.MeshBasicMaterial({ color: 0x116611, wireframe: true }));
+
+	scene.add(octa);
+	// wireMesh object is added to the original as a sub-object
+	octa.add(wireOcta );
+
+	targetList.push(octa);
+}
+
+function onDocumentMouseDown( event )
+{
+	// the following line would stop any other event handler from firing
+	// (such as the mouse's TrackballControls)
+	//event.preventDefault();
+
+	// update the mouse variable
+	mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+	mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+	checkHighlight();
+
+}
+
+
+
+function checkHighlight(){
+	// find intersections
+
+	// create a Ray with origin at the mouse position
+	//   and direction into the scene (camera direction)
+	var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
+	projector.unprojectVector( vector, camera );
+	var ray = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
+
+	// create an array containing all objects in the scene with which the ray intersects
+	var intersects = ray.intersectObjects( targetList );
+
+	// INTERSECTED = the object in the scene currently closest to the camera
+	//		and intersected by the Ray projected from the mouse position
+
+	// if there is one (or more) intersections
+	if ( intersects.length > 0 )
+	{	// case if mouse is not currently over an object
+		if(INTERSECTED==null){
+			INTERSECTED = intersects[ 0 ];
+			INTERSECTED.face.color = highlightedColor;
+		}
+		else{	// if thse mouse is over an object
+			INTERSECTED.face.color= baseColor;
+			INTERSECTED.object.geometry.colorsNeedUpdate=true;
+			INTERSECTED = intersects[ 0 ];
+			INTERSECTED.face.color = highlightedColor;
+		}
+		// upsdate mouseSphere coordinates and update colors
+		//mouseSphereCoords = [INTERSECTED.point.x,INTERSECTED.point.y,INTERSECTED.point.z];
+		INTERSECTED.object.geometry.colorsNeedUpdate=true;
+
+	}
+	else // there are no intersections
+	{
+		// restore previous intersection object (if it exists) to its original color
+		if ( INTERSECTED ){
+			INTERSECTED.face.color = baseColor;
+			INTERSECTED.object.geometry.colorsNeedUpdate=true;
+		}
+		// remove previous intersection object reference
+		//     by setting current intersection object to "nothing"
+
+		INTERSECTED = null;
+		mouseSphereCoords = null;
+
+
+	}
+}
+
+
+function animate()
+{
+    requestAnimationFrame( animate );
+	render();
+	//update();
+}
+
+
+function render()
+{
+	renderer.render( scene, camera );
+}
+
+</script>
+
+</body>
+</html>
